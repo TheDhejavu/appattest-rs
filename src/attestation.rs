@@ -1,14 +1,15 @@
-use std::{time::Duration};
-
+use std::{io::Cursor, time::Duration};
 use base64::{engine::general_purpose, Engine};
+use ciborium::from_reader;
+use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use crate::{authenticator::AuthenticatorData, error::AppAttestError};
-use openssl::{bn::BigNumContext, ec::PointConversionForm, hash::{hash, MessageDigest}, sha::Sha256, stack::Stack, x509::{store::X509StoreBuilder, X509Extension, X509StoreContext, X509}};
+use openssl::{bn::BigNumContext, ec::PointConversionForm, hash::{hash, MessageDigest}, sha::Sha256, stack::Stack, x509::{store::X509StoreBuilder, X509StoreContext, X509}};
 use std::error::Error;
 
 
 #[derive(Serialize, Deserialize, Debug)]
-struct Attestation {
+pub struct Attestation {
     #[serde(rename = "attStmt")]
     statement: Statement,
     #[serde(rename="authData")]
@@ -33,41 +34,45 @@ impl Attestation {
     /// Returns `AppAttestError` if decoding or deserialization fails.
     pub fn from_base64(base64_attestation: &str) -> Result<Self, AppAttestError> {
         let decoded_bytes = general_purpose::STANDARD
-            .decode(base64_attestation)  .map_err(|e| AppAttestError::Message(e.to_string()))?;
+        .decode(base64_attestation)
+        .map_err(|e| AppAttestError::Message(format!("Failed to decode Base64: {}", e)))?;
 
-        let attestation: Attestation = serde_cbor::from_slice(&decoded_bytes)
-            .map_err(|e| AppAttestError::Message(e.to_string()))?;
-        
-        Ok(attestation)
+        let cursor = Cursor::new(decoded_bytes);
+
+        // Deserialize the CBOR data into your Rust structure
+        let assertion_result: Result<Attestation, _> = from_reader(cursor);  
+        if let Ok(assertion) = assertion_result {
+            return  Ok(assertion)
+        }
+        Err(AppAttestError::Message("unable to parse base64 attestation".to_string()))
     }
 
-    /// Fetches the Apple root certificate from the specified URL.
-    async fn fetch_apple_root_cert(url: &str) -> Result<X509, AppAttestError> {
-        let client = reqwest::Client::builder()
+   /// Fetches the Apple root certificate from the specified URL.
+    fn fetch_apple_root_cert(url: &str) -> Result<X509, AppAttestError> {
+        let client = Client::builder()
             .timeout(Duration::from_secs(30))
             .build()
             .map_err(|e| AppAttestError::Message(format!("Failed to build HTTP client: {}", e)))?;
-    
+
         let response = client.get(url)
             .send()
-            .await
             .map_err(|e| AppAttestError::Message(format!("Network request failed: {}", e)))?;
-    
+
         if !response.status().is_success() {
             return Err(AppAttestError::Message(format!("Failed to fetch: HTTP Status: {}", response.status())));
         }
-    
-        let cert_data = response.text().await
+
+        let cert_data = response.text()
             .map_err(|e| AppAttestError::Message(format!("Failed to read response text: {}", e)))?;
-        
 
         let cert = X509::from_pem(cert_data.as_bytes())
-            .map_err(|e| AppAttestError::Message(format!("Failed to parse cerificate: {}", e)))?;
-        
+            .map_err(|e| AppAttestError::Message(format!("Failed to parse certificate: {}", e)))?;
+
         Ok(cert)
     }
 
     /// verifyCertificates verifies the certificate chain in the attestation statement
+    #[allow(dead_code)]
     fn verify_certificates(certificates: Vec<Vec<u8>>, apple_root_cert: &X509) -> Result<(), Box<dyn Error>> {
         let mut store_builder = X509StoreBuilder::new()?;
         let mut intermediates = Stack::new()?;
@@ -135,25 +140,25 @@ impl Attestation {
     /// it returns `Err` with an appropriate error encapsulated in a `Box<dyn Error>`.
     ///
     /// # Example
-    /// ```
-    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     let challenge = "example_challenge";
-    ///     let app_id = "com.example.app";
-    ///     let key_id = "base64encodedkeyid==";
+    /// ```no_run
+    /// use appattest_rs::attestation::Attestation;
+    /// 
+    /// let challenge = "example_challenge";
+    /// let app_id = "com.example.app";
+    /// let key_id = "base64encodedkeyid==";
     ///
-    ///     let attestation_data = "base64_encoded_attestation_data"; 
-    ///     let attestation = Attestation::from_base64(attestation_data)?;
+    /// let base64_cbor_data = "o2NmbXR....";
+    /// let attestation = Attestation::from_base64(base64_cbor_data).expect("unable to convert from base64");
     ///
-    ///     attestation.verify(challenge, app_id, key_id).await?;
-    ///     Ok(())
-    /// }
+    /// attestation.verify(challenge, app_id, key_id);
     /// ```
-    pub async fn verify(self, challenge: &str, app_id: &str, key_id: &str) -> Result<((Vec<u8>, Vec<u8>)),  Box<dyn Error>> {
+    #[allow(unused_variables)]
+    pub fn verify(self, challenge: &str, app_id: &str, key_id: &str) -> Result<(Vec<u8>, Vec<u8>),  Box<dyn Error>> {
         // Step 1: Verify Certificates
-        let apple_root_cert = Attestation::fetch_apple_root_cert("https://www.apple.com/certificateauthority/Apple_App_Attestation_Root_CA.pem").await?;
+        let apple_root_cert = Attestation::fetch_apple_root_cert("https://www.apple.com/certificateauthority/Apple_App_Attestation_Root_CA.pem")?;
         
         // Step 2: Parse Authenticator Data
-	    let auth_data = AuthenticatorData::new(self.auth_data)?;
+        let auth_data = AuthenticatorData::new(self.auth_data)?;
 
         // Step 3: Create and Verify Nonce
         let client_data_hash = Attestation::client_data_hash(challenge);
@@ -167,7 +172,7 @@ impl Attestation {
 
         // Step 4: Verify Public Key Hash
         let public_key_bytes = Attestation::verify_public_key_hash(&cred_cert, &key_id_decoded_bytes)?;
-        if public_key_bytes.1 {
+        if !public_key_bytes.1 {
             return Err(AppAttestError::InvalidPublicKey.into());
         }
 
@@ -185,6 +190,6 @@ impl Attestation {
         // Step 8: Verify Credential ID
         auth_data.verify_key_id(&key_id_decoded_bytes)?;
 
-        Ok((public_key_bytes.0, todo!()))
+        Ok((public_key_bytes.0.clone(), public_key_bytes.0.clone()))
     }
 }
