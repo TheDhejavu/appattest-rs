@@ -2,17 +2,17 @@ use byteorder::{BigEndian, ByteOrder};
 use sha2::{Sha256, Digest};
 use crate::error::AppAttestError;
 
-struct AuthenticatorData {
-    bytes: Vec<u8>,
-    rp_id_hash: Vec<u8>,
-    flags: u8,
-    counter: u32,
-    aaguid: AAGUID, 
-    credential_id: Vec<u8>,
+pub(crate) struct AuthenticatorData {
+    pub(crate) bytes: Vec<u8>,
+    pub(crate) rp_id_hash: Vec<u8>,
+    pub(crate) flags: u8,
+    pub(crate) counter: u32,
+    pub(crate) aaguid: AAGUID, 
+    pub(crate) credential_id: Vec<u8>,
 }
 
 impl AuthenticatorData {
-    fn new(auth_data_byte: Vec<u8>) -> Result<Self, AppAttestError> {
+    pub(crate) fn new(auth_data_byte: Vec<u8>) -> Result<Self, AppAttestError> {
         if auth_data_byte.len() < 37 {
             return Err(AppAttestError::Message("Authenticator data is too short".to_string()));
         }
@@ -40,7 +40,7 @@ impl AuthenticatorData {
         Ok(auth_data)
     }
 
-    fn is_valid_aaguid(&self) -> bool {
+    pub(crate) fn is_valid_aaguid(&self) -> bool {
         let expected_aaguid = APP_ATTEST.as_bytes().to_vec();
         let mut prod_aaguid = expected_aaguid.clone();
         prod_aaguid.extend(std::iter::repeat(0x00).take(7));
@@ -48,7 +48,7 @@ impl AuthenticatorData {
         self.aaguid.bytes() == expected_aaguid || self.aaguid.bytes() == prod_aaguid
     }
 
-    fn verify_counter(&self) -> Result<(), AppAttestError> {
+    pub(crate) fn verify_counter(&self) -> Result<(), AppAttestError> {
         if self.counter == 0 {
             Err(AppAttestError::InvalidCounter)
         } else {
@@ -56,7 +56,7 @@ impl AuthenticatorData {
         }
     }
 
-    fn verify_app_id(&self, app_id: &str) -> Result<(), AppAttestError> {
+    pub(crate) fn verify_app_id(&self, app_id: &str) -> Result<(), AppAttestError> {
         let mut hasher = Sha256::new();
         hasher.update(app_id.as_bytes());
         if self.rp_id_hash != hasher.finalize().as_slice() {
@@ -66,7 +66,7 @@ impl AuthenticatorData {
         }
     }
 
-    fn verify_key_id(&self, key_id: &Vec<u8>) -> Result<(), AppAttestError> {
+    pub(crate) fn verify_key_id(&self, key_id: &Vec<u8>) -> Result<(), AppAttestError> {
         if &self.credential_id != key_id {
             Err(AppAttestError::InvalidCredentialID)
         } else {
