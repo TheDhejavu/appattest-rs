@@ -7,6 +7,9 @@ use crate::{authenticator::AuthenticatorData, error::AppAttestError};
 use openssl::{bn::BigNumContext, ec::PointConversionForm, hash::{hash, MessageDigest}, sha::Sha256, stack::Stack, x509::{store::X509StoreBuilder, X509StoreContext, X509}};
 use std::error::Error;
 
+use x509_parser::prelude::*;
+use der_parser::{ber::BerObjectContent, oid::Oid, parse_ber};
+
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Attestation {
@@ -38,8 +41,6 @@ impl Attestation {
         .map_err(|e| AppAttestError::Message(format!("Failed to decode Base64: {}", e)))?;
 
         let cursor = Cursor::new(decoded_bytes);
-
-        // Deserialize the CBOR data into your Rust structure
         let assertion_result: Result<Attestation, _> = from_reader(cursor);  
         if let Ok(assertion) = assertion_result {
             return  Ok(assertion)
@@ -72,32 +73,69 @@ impl Attestation {
     }
 
     /// verifyCertificates verifies the certificate chain in the attestation statement
-    #[allow(dead_code)]
     fn verify_certificates(certificates: Vec<Vec<u8>>, apple_root_cert: &X509) -> Result<(), Box<dyn Error>> {
-        let mut store_builder = X509StoreBuilder::new()?;
-        let mut intermediates = Stack::new()?;
-    
-        // Add all intermediate certificates to the stack
-        for cert_der in certificates.iter().skip(1) {
-            let cert = X509::from_der(cert_der)?;
-            intermediates.push(cert)?;
+        if certificates.is_empty() {
+            return Err("certificates is empty".into());
+        }
+        let mut certs: Vec<X509> = Vec::new();
+        for cert_der in certificates {
+            let cert: X509 = X509::from_der(&cert_der)?;
+            certs.push(cert);
         }
     
+        let mut store_builder = X509StoreBuilder::new()?;
+        
         store_builder.add_cert(apple_root_cert.clone())?;
     
         let store = store_builder.build();
-        let target_cert = X509::from_der(&certificates[0])?;
     
-        let mut store_ctx = X509StoreContext::new()?;
-        store_ctx.init(&store, &target_cert, &intermediates, |_ctx| {
+        let mut cert_chain = Stack::new()?;
+        for cert in certs.iter().skip(1) {
+            cert_chain.push(cert.to_owned())?;
+        }
+    
+        let mut context = X509StoreContext::new()?;
+        context.init(&store, &certs[0], &cert_chain, |ctx| {
+            ctx.verify_cert()?;
             Ok(())
         })?;
-    
-        // Verify the certificate
-        store_ctx.verify_cert()?;
-    
+
         Ok(())
     }
+    // extract_nonce_from_cert extracts the nonce from the certificate
+    fn extract_nonce_from_cert(cert_der: &[u8]) -> Result<Vec<u8>, AppAttestError> {
+        let (_, cert) = parse_x509_certificate(cert_der)
+            .map_err(|_| AppAttestError::Message("Failed to parse certificate".to_string()))?;
+    
+        let cred_cert_oid = Oid::from(&[1, 2, 840, 113635, 100, 8, 2])
+            .map_err(|_| AppAttestError::Message("Failed to parse OID".to_string()))?;
+    
+        let extensions: &[X509Extension] = cert.extensions();
+        let extension_value = extensions.iter()
+            .find(|ext| ext.oid == cred_cert_oid)
+            .ok_or(AppAttestError::Message("Certificate did not contain credCert extension".to_string()))?
+            .value;
+    
+        let (_, raw_value) = parse_ber(extension_value)
+            .map_err(|_| AppAttestError::ExpectedASN1Node)?;
+    
+        if let BerObjectContent::Sequence(seq) = &raw_value.content {
+            for obj in seq {
+                match &obj.content {
+                    BerObjectContent::Unknown(unknown_obj) => {
+                        // Ref: https://cs.opensource.google/go/go/+/refs/tags/go1.22.4:src/encoding/asn1/asn1.go;l=530
+                        let offset: usize = 2; 
+                        return Ok(unknown_obj.data[offset..].to_vec());
+                    },
+                    _ => continue, 
+                }
+            }
+            Err(AppAttestError::FailedToExtractValueFromASN1Node)
+        } else {
+            Err(AppAttestError::ExpectedASN1Node)
+        }
+    }
+  
     // client_data_hash creates SHA256 hash of the challenge
     fn client_data_hash(challenge: &str) -> Vec<u8> {
         let mut hasher = Sha256::new();
@@ -157,6 +195,8 @@ impl Attestation {
         // Step 1: Verify Certificates
         let apple_root_cert = Attestation::fetch_apple_root_cert("https://www.apple.com/certificateauthority/Apple_App_Attestation_Root_CA.pem")?;
         
+        Attestation::verify_certificates(self.statement.certificates.clone(), &apple_root_cert)?;
+        
         // Step 2: Parse Authenticator Data
         let auth_data = AuthenticatorData::new(self.auth_data)?;
 
@@ -169,11 +209,15 @@ impl Attestation {
         let key_id_decoded_bytes = general_purpose::STANDARD
         .decode(key_id)  .map_err(|e| AppAttestError::Message(e.to_string()))?;
 
-
         // Step 4: Verify Public Key Hash
         let public_key_bytes = Attestation::verify_public_key_hash(&cred_cert, &key_id_decoded_bytes)?;
         if !public_key_bytes.1 {
             return Err(AppAttestError::InvalidPublicKey.into());
+        }
+
+        let extracted_nonce= Attestation::extract_nonce_from_cert(&self.statement.certificates[0])?;
+        if extracted_nonce.as_slice() != nonce.as_slice() {
+            return Err(AppAttestError::InvalidNonce.into());
         }
 
         // Step 5: Verify App ID Hash
@@ -190,6 +234,6 @@ impl Attestation {
         // Step 8: Verify Credential ID
         auth_data.verify_key_id(&key_id_decoded_bytes)?;
 
-        Ok((public_key_bytes.0.clone(), public_key_bytes.0.clone()))
+        Ok((public_key_bytes.0.clone(), self.statement.receipt))
     }
 }

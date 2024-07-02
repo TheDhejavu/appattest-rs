@@ -36,8 +36,6 @@ impl Assertion {
             .map_err(|e| AppAttestError::Message(format!("Failed to decode Base64: {}", e)))?;
 
         let cursor = Cursor::new(decoded_bytes);
-
-        // Deserialize the CBOR data into your Rust structure
         let assertion_result: Result<Assertion, _> = from_reader(cursor);  
         if let Ok(assertion) = assertion_result {
             return  Ok(assertion)

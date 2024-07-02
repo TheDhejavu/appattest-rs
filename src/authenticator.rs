@@ -3,7 +3,7 @@ use sha2::{Sha256, Digest};
 use std::error::Error;
 use crate::error::AppAttestError;
 
-#[allow(dead_code)]
+ #[allow(dead_code)]
 pub(crate) struct AuthenticatorData {
     pub(crate) bytes: Vec<u8>,
     pub(crate) rp_id_hash: Vec<u8>,

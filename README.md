@@ -10,11 +10,11 @@ flowchart TD
     A[Start] --> B[Decode Base64 CBOR Data]
     B --> C{Is Decoding Successful?}
     C -->|Yes| D[Create Assertion or Attestation Object]
-    C -->|No| E[Log Decoding Failure and Exit]
+    C -->|No| E[Decoding Failure and Exit]
 
     D --> F{Verify Assertion/Attestation}
     F -->|Yes| G[Verification Successful]
-    F -->|No| H[Log Verification Failure]
+    F -->|No| H[Verification Failure]
 
     G --> I[End Process]
     H --> I

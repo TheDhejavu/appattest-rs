@@ -14,6 +14,7 @@ pub enum AppAttestError {
     ExpectedASN1Node,
     FailedToExtractValueFromASN1Node,
     ExpectedOctetStringInsideASN1Node,
+    
     Message(String)
 }
 
