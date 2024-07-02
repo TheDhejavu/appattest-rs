@@ -19,11 +19,11 @@ flowchart TD
     G --> I[End Process]
     H --> I
 
-    style A fill:#f9f,stroke:#333,stroke-width:2px
-    style I fill:#ccf,stroke:#000,stroke-width:2px
-    style G fill:#21CA51,stroke:#000,stroke-width:2px
-    style H fill:#f99,stroke:#000,stroke-width:2px
-    style E fill:#f99,stroke:#933,stroke-width:2px
+    style A fill:#f9f,stroke:#333,stroke-width:2px,color:black
+    style I fill:#ccf,stroke:#333,stroke-width:2px,color:black
+    style G fill:#cfc,stroke:#393,stroke-width:2px,color:black
+    style H fill:#f99,stroke:#933,stroke-width:2px,color:black
+    style E fill:#f99,stroke:#933,stroke-width:2px,color:black
 
 ```
 
