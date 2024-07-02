@@ -113,3 +113,15 @@ impl Assertion {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+   
+    #[test]
+    fn test_from_base64_valid() {
+        let valid_cbor_base64 = "omlzaWduYXR1cmVYRjBEAiAImFuY4+UbGZ5/ZbjAJpjQ3bd8GxaKFpMEo58WMEUGbwIgaqdDJnVS8/3oJCz16O5Zp4Qga5g6zrFF7eoiYEWkdtNxYXV0aGVudGljYXRvckRhdGFYJaRc2WwGuoniZEqtF+kolObjxcczFdDxbrhJR/nT8ehTQAAAAAI=";
+        let result = Assertion::from_base64(valid_cbor_base64);
+        assert!(result.is_ok());
+    }
+}
