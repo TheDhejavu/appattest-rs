@@ -6,7 +6,7 @@ A Rust crate for validating Apple App Attestations and Assertions, ensuring the 
 `appattest-rs` offers a Rust-based solution for integrating Apple's App Attestation mechanism into your server-side applications. This allows you to verify that the app communicating with your server is genuine and has not been modified. This crate is particularly useful for enhancing the security of your iOS applications by utilizing Apple's DeviceCheck capabilities.
 
 ```mermaid
-flowchart TD
+flowchart LR
     A[Start] --> B[Decode Base64 CBOR Data]
     B --> C{Is Decoding Successful?}
     C -->|Yes| D[Create Assertion or Attestation Object]
