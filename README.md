@@ -33,6 +33,29 @@ flowchart LR
 
 ## Usage
 
+### Verifying an Attestation
+```rust
+use appattest_rs::attestation::Attestation;
+
+fn main() {
+   let app_id = "<APPLE_TEAM_ID>.<APPLE_APP_ID>"; // replace this with yours. E.g 9000738U8.auth.iphone.com
+    let key_id = "ZSSh9dOqo0iEvnNOtTGIHaue8n4RN/Dd8FiYFphsKTI=";
+    let challenge = "5b3b2303-e650-4a56-a9ec-33e3e2a90d14";
+    let base64_cbor_data = "o2NmbXRv...";
+
+    let attestation_result = Attestation::from_base64(base64_cbor_data);
+    match attestation_result {
+        Ok(attestation) => {
+            match attestation.verify(challenge, app_id, key_id) {
+                Ok(_) => println!("Verification successful!"),
+                Err(e) => println!("Verification failed: {:?}", e),
+            }
+        },
+        Err(e) => println!("Failed to decode and create attestation: {:?}", e),
+    }
+}
+```
+
 ### Verifying an Assertion
 ```rust
 use appattest_rs::assertion::Assertion;
@@ -60,28 +83,6 @@ fn main() {
 }
 ```
 
-### Verifying an Attestation
-```rust
-use appattest_rs::attestation::Attestation;
-
-fn main() {
-   let app_id = "<APPLE_TEAM_ID>.<APPLE_APP_ID>"; // replace this with yours. E.g 9000738U8.auth.iphone.com
-    let key_id = "ZSSh9dOqo0iEvnNOtTGIHaue8n4RN/Dd8FiYFphsKTI=";
-    let challenge = "5b3b2303-e650-4a56-a9ec-33e3e2a90d14";
-    let base64_cbor_data = "o2NmbXRv...";
-
-    let attestation_result = Attestation::from_base64(base64_cbor_data);
-    match attestation_result {
-        Ok(attestation) => {
-            match attestation.verify(challenge, app_id, key_id) {
-                Ok(_) => println!("Verification successful!"),
-                Err(e) => println!("Verification failed: {:?}", e),
-            }
-        },
-        Err(e) => println!("Failed to decode and create attestation: {:?}", e),
-    }
-}
-```
 
 ## References
 For more detailed documentation, visit the following resources:
