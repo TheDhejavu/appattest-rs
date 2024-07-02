@@ -120,3 +120,83 @@ impl AAGUID {
     }
     
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_auth_data_new_valid() {
+        let mut bytes = vec![0u8; 37];
+        // use random flags
+        bytes[32] = 0b00000001;
+        // set counter to 1
+        BigEndian::write_u32(&mut bytes[33..37], 1); 
+
+        let result = AuthenticatorData::new(bytes);
+        assert!(result.is_ok());
+
+        let auth_data = result.unwrap();
+        assert_eq!(auth_data.counter, 1);
+    }
+
+    #[test]
+    fn test_auth_data_new_too_short() {
+        // here, we create bytes less than required 37 bytes
+        let bytes = vec![0u8; 36]; 
+        let result = AuthenticatorData::new(bytes);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_aaguid_new_valid() {
+        let appattest_bytes = APP_ATTEST.as_bytes().to_vec();
+        let result = AAGUID::new(appattest_bytes);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().0, APP_ATTEST);
+    }
+
+    #[test]
+    fn test_aaguid_new_invalid() {
+        let invalid_bytes = vec![0u8; 16]; // use dummy bytes that does not match any known AAGUID
+        let result = AAGUID::new(invalid_bytes);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_verify_app_id() {
+        let app_id = "app.apple.connect";
+        let mut hasher = Sha256::new();
+        hasher.update(app_id.as_bytes());
+        let hash = hasher.finalize().to_vec();
+
+        let auth_data = AuthenticatorData {
+            bytes: vec![],
+            rp_id_hash: hash,
+            flags: 0,
+            counter: 0,
+            aaguid: None,
+            credential_id: None,
+        };
+
+        assert!(auth_data.verify_app_id("app.apple.connect").is_ok());
+        assert!(auth_data.verify_app_id("invalid.apple.connect").is_err());
+    }
+
+    #[test]
+    fn test_verify_key_id() {
+        let key_id = vec![1, 2, 3, 4];
+        let auth_data = AuthenticatorData {
+            bytes: vec![],
+            rp_id_hash: vec![],
+            flags: 0,
+            counter: 0,
+            aaguid: None,
+            credential_id: Some(key_id.clone()),
+        };
+
+        assert!(auth_data.verify_key_id(&key_id).is_ok());
+        assert!(auth_data.verify_key_id(&vec![4, 3, 2, 1]).is_err());
+    }
+}

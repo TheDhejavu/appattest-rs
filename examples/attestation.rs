@@ -20,3 +20,4 @@ fn main() {
         Err(e) => println!("Failed to decode and create assertion: {:?}", e),
     }
 }
+
