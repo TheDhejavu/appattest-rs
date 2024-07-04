@@ -1,7 +1,12 @@
+cargo-features = ["edition2024"]
+
 [package]
 name = "appattest-rs"
+edition = "2024"
+license = "MIT"
+author = "Ayodeji Akinola"
+repository = "https://github.com/TheDhejavu/appattest-rs"
 version = "0.1.0"
-edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
