@@ -1,17 +1,16 @@
-cargo-features = ["edition2024"]
-
 [package]
 name = "appattest-rs"
-edition = "2024"
 license = "MIT"
-author = "Ayodeji Akinola"
+edition = "2021" 
+author = ["Ayodeji Akinola <akinayodeji4all@gmail.com>"]
 repository = "https://github.com/TheDhejavu/appattest-rs"
 version = "0.1.0"
+readme = "README.md"
+description = "A Rust module for validating Apple App Attestations and Assertions"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-byteorder = "1.4"
 sha2 = "0.10.8"
 reqwest = { version = "0.12.5", features = ["blocking"] }
 serde = { version = "1.0", features = ["derive"] }
@@ -19,6 +18,5 @@ serde_json = "1.0"
 base64 = "0.22.1"
 serde_cbor = "0.11.2"
 openssl = "0.10"
-p256 = "0.13.2" 
 ciborium = "0.2.2" 
 x509-parser = "0.16.0"
