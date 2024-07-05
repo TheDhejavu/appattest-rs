@@ -31,9 +31,30 @@ flowchart LR
 - **Validation of App Attestations**: Ensure that the attestation received from an iOS device is valid and conforms to Apple's guidelines.
 - **Assertion Verification**: Verify assertions made by iOS applications to confirm their authenticity.
 
+## Installation
+
+Add `appattest-rs` to the `[dependencies]` section of your `Cargo.toml`:
+
+```toml
+...
+
+[dependencies]
+appattest-rs = "0.1.0"
+
+...
+```
+
+Alternatively, with `cargo add`:
+
+```bash
+$ cargo add appattest-rs
+```
+
 ## Usage
 
 ### Verifying an Attestation
+`src/main.rs`:
+
 ```rust
 use appattest_rs::attestation::Attestation;
 
@@ -57,6 +78,8 @@ fn main() {
 ```
 
 ### Verifying an Assertion
+`src/main.rs`:
+
 ```rust
 use appattest_rs::assertion::Assertion;
 use base64::{engine::general_purpose, Engine};
