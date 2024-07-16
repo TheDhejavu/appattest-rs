@@ -47,7 +47,7 @@ appattest-rs = "0.1.0"
 Alternatively, with `cargo add`:
 
 ```bash
-$ cargo add appattest-rs
+❯❯ cargo add appattest-rs
 ```
 
 ## Usage
